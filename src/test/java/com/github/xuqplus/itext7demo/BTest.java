@@ -49,11 +49,13 @@ class BTest {
 		Paragraph paragraph = new Paragraph("text");
 		byte[] bytes = Files.readAllBytes(new File("b.jpg").toPath());
 		paragraph.add("hello, 世界.")
-				.add(new Image(ImageDataFactory.create("b.jpg")))
+				.add(new Image(ImageDataFactory.create("b.jpg"))
+						.setRotationAngle(90D))
 				.add("hello, 世界.")
-				.add(new Image(ImageDataFactory.create(bytes)))
-				.add("hello, 世界.")
-				.add(new Image(ImageDataFactory.createRawImage(bytes))); // 无效
+				.add(new Image(ImageDataFactory.create(bytes))
+						.setHeight(100F)
+						.setWidth(100F))
+				.add("hello, 世界.");
 		pdf.add(paragraph);
 
 		pdf.close();
