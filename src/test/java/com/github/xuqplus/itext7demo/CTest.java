@@ -1,5 +1,7 @@
 package com.github.xuqplus.itext7demo;
 
+import com.itextpdf.kernel.colors.Color;
+import com.itextpdf.kernel.colors.DeviceCmyk;
 import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfPage;
@@ -63,6 +65,27 @@ class CTest {
 						canvas.moveTo(5, j).lineTo(-5, j);
 					}
 					canvas.stroke();
+
+					Color grayColor = new DeviceCmyk(0.f, 0.f, 0.f, 0.875f);
+					Color greenColor = new DeviceCmyk(1.f, 0.f, 1.f, 0.176f);
+					Color blueColor = new DeviceCmyk(1.f, 0.156f, 0.f, 0.118f);
+					canvas.setLineWidth(0.5f).setStrokeColor(blueColor);
+					for (int i = -((int) ps.getHeight() / 2 - 57);
+					     i < ((int) ps.getHeight() / 2 - 56); i += 40) {
+						canvas.moveTo(-(ps.getWidth() / 2 - 15), i)
+								.lineTo(ps.getWidth() / 2 - 15, i);
+					}
+					for (int j = -((int) ps.getWidth() / 2 - 61);
+					     j < ((int) ps.getWidth() / 2 - 60); j += 40) {
+						canvas.moveTo(j, -(ps.getHeight() / 2 - 15))
+								.lineTo(j, ps.getHeight() / 2 - 15);
+					}
+					canvas.stroke();
+					canvas.setLineWidth(3).setStrokeColor(grayColor);
+					canvas.setLineWidth(2).setStrokeColor(greenColor)
+							.setLineDash(10, 10, 8)
+							.moveTo(-(ps.getWidth() / 2 - 15), -(ps.getHeight() / 2 - 15))
+							.lineTo(ps.getWidth() / 2 - 15, ps.getHeight() / 2 - 15).stroke();
 				}
 			}
 		}
