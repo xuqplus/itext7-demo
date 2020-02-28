@@ -2,6 +2,7 @@ package com.github.xuqplus.itext7demo.i5;
 
 import com.itextpdf.text.BaseColor;
 import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Image;
 import com.itextpdf.text.Paragraph;
 import com.itextpdf.text.Rectangle;
 import com.itextpdf.text.pdf.ColumnText;
@@ -16,22 +17,21 @@ import com.itextpdf.text.pdf.security.ExternalSignature;
 import com.itextpdf.text.pdf.security.MakeSignature;
 import com.itextpdf.text.pdf.security.PrivateKeySignature;
 import lombok.extern.slf4j.Slf4j;
+import net.coobird.thumbnailator.Thumbnails;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.Test;
 
+import javax.imageio.stream.MemoryCacheImageOutputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.Security;
-import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
 
 @Slf4j
 class SignTest {
@@ -41,8 +41,8 @@ class SignTest {
 
 	@Test
 	void a() throws IOException, GeneralSecurityException, DocumentException {
-		String src = "a.pdf";
-		String dest = "target/a%s.pdf";
+		String src = "D:\\work2\\hello-react-pdf\\public\\e9.pdf";
+		String dest = "target/a.pdf";
 		BouncyCastleProvider provider = new BouncyCastleProvider();
 		Security.addProvider(provider);
 		KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
@@ -50,25 +50,25 @@ class SignTest {
 		String alias = ks.aliases().nextElement();
 		PrivateKey pk = (PrivateKey) ks.getKey(alias, password);
 		Certificate[] chain = ks.getCertificateChain(alias);
-		sign(src, String.format(dest, 1), chain, pk, DigestAlgorithms.SHA256,
-				provider.getName(), MakeSignature.CryptoStandard.CMS, "Test 1", "Ghent");
-		sign(src, String.format(dest, 2), chain, pk, DigestAlgorithms.SHA512,
-				provider.getName(), MakeSignature.CryptoStandard.CMS, "Test 2", "Ghent");
+//		sign(src, String.format(dest, 1), chain, pk, DigestAlgorithms.SHA256,
+//				provider.getName(), MakeSignature.CryptoStandard.CMS, "Test 1", "Ghent");
+//		sign(src, String.format(dest, 2), chain, pk, DigestAlgorithms.SHA512,
+//				provider.getName(), MakeSignature.CryptoStandard.CMS, "Test 2", "Ghent");
 		sign(src, String.format(dest, 3), chain, pk, DigestAlgorithms.SHA256,
 				provider.getName(), MakeSignature.CryptoStandard.CADES, "Test 3", "Ghent");
-		sign(src, String.format(dest, 4), chain, pk, DigestAlgorithms.RIPEMD160,
-				provider.getName(), MakeSignature.CryptoStandard.CADES, "Test 4", "Ghent");
+//		sign(src, String.format(dest, 4), chain, pk, DigestAlgorithms.RIPEMD160,
+//				provider.getName(), MakeSignature.CryptoStandard.CADES, "Test 4", "Ghent");
 	}
 
 	public void sign(String src,
-	                 String dest,
-	                 Certificate[] chain,
-	                 PrivateKey pk,
-	                 String digestAlgorithm,
-	                 String provider,
-	                 MakeSignature.CryptoStandard subfilter,
-	                 String reason,
-	                 String location)
+					 String dest,
+					 Certificate[] chain,
+					 PrivateKey pk,
+					 String digestAlgorithm,
+					 String provider,
+					 MakeSignature.CryptoStandard subfilter,
+					 String reason,
+					 String location)
 			throws GeneralSecurityException, IOException, DocumentException {
 		// Creating the reader and the stamper
 		PdfReader reader = new PdfReader(src);
@@ -76,9 +76,33 @@ class SignTest {
 		PdfStamper stamper = PdfStamper.createSignature(reader, os, '\0');
 		// Creating the appearance
 		PdfSignatureAppearance appearance = stamper.getSignatureAppearance();
+
+//		appearance.setCertificationLevel(0);
+//		appearance.setCertificationLevel(1);
+//		appearance.setCertificationLevel(2);
+//		appearance.setCertificationLevel(3);
 		appearance.setReason(reason);
 		appearance.setLocation(location);
-		appearance.setVisibleSignature(new Rectangle(36, 748, 144, 780), 1, "sig");
+//		appearance.setVisibleSignature(new Rectangle(36, 748, 144, 780), 1, "sig");
+		appearance.setVisibleSignature(new Rectangle(0, 0, 500, 800), 1, "sig");
+
+		appearance.setContact("445172495@qq.com");
+//		appearance.setImage(Image.getInstance(new File("b.jpg").toURL()));
+//		appearance.setImage(Image.getInstance(new File("a.png").toURL()));
+		appearance.setRenderingMode(PdfSignatureAppearance.RenderingMode.GRAPHIC);
+//		appearance.setSignatureGraphic(Image.getInstance(new File("favicon.png").toURL()));
+//		Image instance = Image.getInstance(new File("favicon.png").toURL());
+//		instance.scaleAbsolute(500, 800);
+//		instance.scaleToFit(500, 800);
+		MemoryCacheImageOutputStream mos = new MemoryCacheImageOutputStream(new ByteArrayOutputStream());
+
+		Thumbnails.of(new File("favicon.png"))
+				.forceSize(500, 800)
+				.rotate(45D)
+				.outputFormat("png")
+				.toFile("target/tmp.png");
+		appearance.setSignatureGraphic(Image.getInstance(new File("target/tmp.png").toURL()));
+
 		// Creating the signature
 		ExternalDigest digest = new BouncyCastleDigest();
 		ExternalSignature signature =
@@ -99,13 +123,13 @@ class SignTest {
 		PrivateKey pk = (PrivateKey) ks.getKey(alias, password);
 		Certificate[] chain = ks.getCertificateChain(alias);
 
-		sign( src,  "field0",  dest,  chain, pk,  "SHA-256",  "SunRsaSign",
-				MakeSignature.CryptoStandard.CMS, "reason",  "location");
+		sign(src, "field0", dest, chain, pk, "SHA-256", "SunRsaSign",
+				MakeSignature.CryptoStandard.CMS, "reason", "location");
 	}
 
 	public void sign(String src, String name, String dest, Certificate[] chain,
-	                 PrivateKey pk, String digestAlgorithm, String provider,
-	                 MakeSignature.CryptoStandard subfilter, String reason, String location)
+					 PrivateKey pk, String digestAlgorithm, String provider,
+					 MakeSignature.CryptoStandard subfilter, String reason, String location)
 			throws GeneralSecurityException, IOException, DocumentException {
 // Creating the reader and the stamper
 		PdfReader reader = new PdfReader(src);
