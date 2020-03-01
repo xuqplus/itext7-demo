@@ -2,6 +2,8 @@ package com.github.xuqplus.itext7demo.controller;
 
 import com.github.xuqplus.itext7demo.domain.Seal;
 import com.github.xuqplus.itext7demo.repository.SealRepository;
+import com.github.xuqplus.itext7demo.req.SignRequest;
+import com.github.xuqplus.itext7demo.service.SignService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,6 +25,9 @@ public class BController {
 	@Autowired
 	SealRepository sealRepository;
 
+	@Autowired
+	SignService signService;
+
 	@GetMapping("seal/list")
 	public ResponseEntity list(Pageable pageable) {
 		Page<Seal> seals = sealRepository.findAll(pageable);
@@ -35,5 +40,11 @@ public class BController {
 			sealRepository.save(seal);
 		}
 		return ResponseEntity.ok().body(seal);
+	}
+
+	@PostMapping("sign")
+	public ResponseEntity sign(@RequestBody SignRequest signRequest) throws Exception {
+		signService.sign(signRequest);
+		return ResponseEntity.ok().body("签署成功");
 	}
 }
