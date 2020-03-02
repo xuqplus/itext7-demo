@@ -21,6 +21,7 @@ import java.io.File;
 public class BController {
 
 	final static String dir = "d:/tmp/data/";
+	final static String signedDir = "d:/tmp/data/signed/";
 
 	@Autowired
 	SealRepository sealRepository;
@@ -46,5 +47,10 @@ public class BController {
 	public ResponseEntity sign(@RequestBody SignRequest signRequest) throws Exception {
 		signService.sign(signRequest);
 		return ResponseEntity.ok().body("签署成功");
+	}
+
+	@GetMapping("signed/list")
+	public ResponseEntity signed() {
+		return ResponseEntity.ok().body(new File(signedDir).list());
 	}
 }

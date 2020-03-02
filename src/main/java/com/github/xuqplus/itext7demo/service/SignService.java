@@ -22,10 +22,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ResourceUtils;
+import org.springframework.util.StringUtils;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.Security;
@@ -74,7 +78,7 @@ public class SignService {
 		for (int i = 0; i < documents.size(); i++) {
 			Document pdfDoc = documents.get(i);
 			File document = new File(dir + pdfDoc.getFilename());
-			File outputDocument = new File(signedDir + pdfDoc.getFilename());
+			File outputDocument = new File(signedDir + pdfDoc.getFilename() + ".signed.pdf");
 			signADocument(document, outputDocument, docStamperMap.get(i));
 		}
 	}
@@ -92,62 +96,61 @@ public class SignService {
 		String alias = ks.aliases().nextElement();
 		PrivateKey pk = (PrivateKey) ks.getKey(alias, password);
 		Certificate[] chain = ks.getCertificateChain(alias);
-		for (int i = 0; i < stampers.size(); i++) {
-			Stamper stamperDesc = stampers.get(i);
-			boolean isFirst = i == 0;
-			boolean isLast = i >= stampers.size() - 1;
+		try (InputStream fis = new FileInputStream(document)) {
+			PdfReader reader = new PdfReader(fis);
+			for (int i = 0, stampersSize = stampers.size(); i < stampersSize; i++) {
+				Stamper stamperDesc = stampers.get(i);
+				try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
+					// 计算签名矩形
+					Rectangle pageSize = reader.getPageSize(stamperDesc.getPageIndex() + 1);
+					float height = pageSize.getHeight();
+					float ury = height - stamperDesc.getTop();
+					float llx = stamperDesc.getLeft();
+					float lly = ury - stamperDesc.getHeight();
+					float urx = llx + stamperDesc.getWidth();
+					Rectangle rectangle = new Rectangle(llx, lly, urx, ury);
+					rectangle = handleRotation(rectangle, stamperDesc.getRotateAngle());
 
-			PdfReader reader;
-			FileOutputStream os;
-			if (isFirst) {
-				try (FileInputStream fileInputStream = new FileInputStream(document)) {
-					reader = new PdfReader(fileInputStream);
-				}
-			} else {
-				try (FileInputStream fileInputStream = new FileInputStream(document.getAbsoluteFile() + ".4sign." + (i - 1) + ".pdf")) {
-					reader = new PdfReader(fileInputStream);
+					// 可追加签名
+					PdfStamper stamper = PdfStamper.createSignature(reader, os, '\0', null, true);
+					PdfSignatureAppearance appearance = stamper.getSignatureAppearance();
+					appearance.setReason(reason);
+					appearance.setLocation(location);
+					appearance.setContact(contact);
+					appearance.setSignatureCreator(contact);
+					appearance.setVisibleSignature(rectangle, stamperDesc.getPageIndex() + 1, "sig-" + System.currentTimeMillis());
+					appearance.setRenderingMode(PdfSignatureAppearance.RenderingMode.GRAPHIC); // 显示图片不显示描述
+					appearance.setSignDate(GregorianCalendar.getInstance());
+					appearance.setLayer2Text("haha");
+					appearance.setLayer4Text("haha");
+
+					Seal seal = sealRepository.getOne(stamperDesc.getSealId());
+					String filename = seal.getFilename();
+					String tempFile = tmpDir + seal.getFilename();
+					Thumbnails.of(new File(dir + filename))
+							.forceSize(stamperDesc.getWidth() * 10, stamperDesc.getHeight() * 10)
+							.rotate(stamperDesc.getRotateAngle())
+							.outputFormat(StringUtils.getFilenameExtension(filename))
+							.toFile(tempFile);
+					appearance.setSignatureGraphic(Image.getInstance(new File(tempFile).toURL()));
+
+					// 摘要
+					ExternalDigest digest = new BouncyCastleDigest();
+					// 签名
+					ExternalSignature signature = new PrivateKeySignature(pk, digestAlgorithm, provider.getName());
+					MakeSignature.signDetached(appearance, digest, signature, chain, null, null, null, 0, subfilter);
+					boolean isLast = i >= stampersSize - 1;
+					if (isLast) {
+						// 写出
+						try (FileOutputStream fos = new FileOutputStream(outputDocument)) {
+							fos.write(os.toByteArray());
+						}
+					} else {
+						// 重读
+						reader = new PdfReader(new ByteArrayInputStream(os.toByteArray()));
+					}
 				}
 			}
-			if (isLast) {
-				os = new FileOutputStream(outputDocument);
-			} else {
-				os = new FileOutputStream(document.getAbsoluteFile() + ".4sign." + i + ".pdf");
-			}
-			// 计算签名矩形
-			Rectangle pageSize = reader.getPageSize(stamperDesc.getPageIndex() + 1);
-			float height = pageSize.getHeight();
-			float ury = height - stamperDesc.getTop();
-			float llx = stamperDesc.getLeft();
-			float lly = ury - stamperDesc.getHeight();
-			float urx = llx + stamperDesc.getWidth();
-			Rectangle rectangle = new Rectangle(llx, lly, urx, ury);
-			rectangle = handleRotation(rectangle, stamperDesc.getRotateAngle());
-
-			PdfStamper stamper = PdfStamper.createSignature(reader, os, '\0');
-			PdfSignatureAppearance appearance = stamper.getSignatureAppearance();
-			appearance.setReason(reason);
-			appearance.setLocation(location);
-			appearance.setContact(contact);
-			appearance.setVisibleSignature(rectangle, stamperDesc.getPageIndex() + 1, "sig-" + i);
-			appearance.setRenderingMode(PdfSignatureAppearance.RenderingMode.GRAPHIC); // 显示图片不显示描述
-			appearance.setSignDate(GregorianCalendar.getInstance());
-			appearance.setLayer2Text("haha");
-			appearance.setLayer4Text("haha");
-
-			Seal seal = sealRepository.getOne(stamperDesc.getSealId());
-			String filename = seal.getFilename();
-			String tempFile = tmpDir + seal.getFilename();
-			Thumbnails.of(new File(dir + filename))
-					.forceSize(stamperDesc.getWidth() * 10, stamperDesc.getHeight() * 10)
-					.rotate(stamperDesc.getRotateAngle())
-					.outputFormat("png")
-					.toFile(tempFile);
-			appearance.setSignatureGraphic(Image.getInstance(new File(tempFile).toURL()));
-
-			// Creating the signature
-			ExternalDigest digest = new BouncyCastleDigest();
-			ExternalSignature signature = new PrivateKeySignature(pk, digestAlgorithm, provider.getName());
-			MakeSignature.signDetached(appearance, digest, signature, chain, null, null, null, 0, subfilter);
 		}
 	}
 
